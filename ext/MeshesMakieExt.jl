@@ -18,7 +18,7 @@ using Meshes: lentype
 import TransformsBase as TB
 import Makie.GeometryBasics as GB
 
-import Meshes: viz, viz!
+import Meshes: viz, viz!, scalebar, scalebar!
 import Makie
 
 Makie.@recipe(Viz, object) do scene
@@ -55,4 +55,5 @@ include("geometryset.jl")
 include("subdomain.jl")
 include("fallbacks.jl")
 
+include("scalebar.jl")
 end

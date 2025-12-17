@@ -4,7 +4,7 @@ unitsindataunit(x::Tuple) = unitsindataunit(x[1])
 scalebarstr(scale::Quantity, mul) = "$(mul) $(unit(scale))"
 scalebarstr(scale::Tuple{<:Number,<:Function}, mul) = scale[2](mul)
 
-@recipe(ScaleBar, scale) do scene
+Makie.@recipe(ScaleBar, scale) do scene
   Attributes(
     position=Point2f(0.85, 0.05),
     targetaxfrac=0.25,

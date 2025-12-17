@@ -131,6 +131,7 @@ include("projecting.jl")
 
 # visualization
 include("viz.jl")
+include("scale.jl")
 
 function __init__()
   # register error hint for visualization functions
@@ -595,6 +596,8 @@ export
 
   # visualization
   viz,
-  viz!
+  viz!,
+  scalebar,
+  scalebar!
 
 end # module
