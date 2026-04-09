@@ -1,11 +1,11 @@
-@testitem "SubDomains" setup = [Setup] begin
-  pset = PointSet(randpoint3(100))
-  inds = rand(1:100, 3)
+@testitem "SubDomain" setup = [Setup] begin
+  pset = PointSet([cart(1, 1, 1), cart(2, 2, 2), cart(3, 3, 3)])
+  inds = [3, 1]
   v = view(pset, inds)
-  @test nelements(v) == 3
+  @test nelements(v) == 2
   @test crs(v) <: Cartesian{NoDatum}
   @test Meshes.lentype(v) == ℳ
-  for i in 1:3
+  for i in 1:2
     p = pset[inds[i]]
     @test v[i] == p
     @test centroid(v, i) == p
@@ -77,6 +77,27 @@
   @test eltype(v1) <: Quadrangle
   @test eltype(v2) <: Hexahedron
   @test eltype(v3) <: Primitive
+
+  # materialize subdomain
+  pset = PointSet([cart(1, 1, 1), cart(2, 2, 2), cart(3, 3, 3)])
+  vset = view(pset, [3, 2])
+  mset = materialize(vset)
+  @test mset isa PointSet
+  @test nelements(mset) == 2
+  @test mset[1] == pset[3]
+  @test mset[2] == pset[2]
+
+  # materialize submesh
+  points = cart.([(0, 0), (1, 0), (0, 1), (1, 1), (0.5, 0.5)])
+  connec = connect.([(1, 2, 5), (2, 4, 5), (4, 3, 5), (3, 1, 5)], Triangle)
+  mesh = SimpleMesh(points, connec)
+  vmesh = view(mesh, [3, 4])
+  mmesh = materialize(vmesh)
+  @test mmesh isa SimpleMesh
+  @test nelements(mmesh) == 2
+  @test nvertices(mmesh) == 4
+  @test mmesh[1] == mesh[3]
+  @test mmesh[2] == mesh[4]
 
   # show
   pset = PointSet(cart.(1:100, 1:100))

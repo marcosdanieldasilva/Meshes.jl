@@ -32,23 +32,23 @@ jobs:
         arch:
           - x64
         package:
-          - GeoStatsVizTests.jl
+          - MeshesVizTests.jl
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - run: julia -e 'using InteractiveUtils; versioninfo(verbose=true)'
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - name: Retrieve downstream package
         # Note: we retrieve the current `main` branch of the downstream package to ensure
         # that compatibility errors we make in Meshes.jl are detected already here
         # See also https://github.com/trixi-framework/Trixi.jl/pull/1707#discussion_r1382938895
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
-          repository: JuliaEarth/${{ matrix.package }}
+          repository: JuliaGeometry/${{ matrix.package }}
           path: downstream
       - name: Load upstream package into downstream environment
         shell: julia --color=yes --project=downstream {0}

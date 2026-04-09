@@ -1,6 +1,5 @@
 @testitem "TransformedDomain" setup = [Setup] begin
-  # constructor
-  pset = PointSet(randpoint2(10))
+  pset = PointSet([cart(1, 1), cart(2, 2), cart(3, 3)])
   trans1 = Scale(T(2), T(2))
   trans2 = Translate(T(4), T(4))
   tpset1 = TransformedDomain(pset, trans1)
@@ -10,7 +9,7 @@
   @test parent(tpset2) == pset
   @test Meshes.transform(tpset2) == (trans1 → trans2)
 
-  pset = PointSet(randpoint2(10))
+  pset = PointSet([cart(1, 1), cart(2, 2), cart(3, 3)])
   trans = Identity()
   tpset = TransformedDomain(pset, trans)
   @test nelements(tpset) == nelements(pset)

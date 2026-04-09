@@ -39,14 +39,14 @@ applycoord(::Translate, v::Vec) = v
 
 applycoord(t::Translate, g::RegularGrid) = TransformedGrid(g, t)
 
-applycoord(t::Translate, g::OrthoRegularGrid) = RegularGrid(size(g), applycoord(t, minimum(g)), spacing(g), offset(g))
+applycoord(t::Translate, g::OrthoRegularGrid) = RegularGrid(applycoord(t, minimum(g)), spacing(g), topology(g))
 
 applycoord(t::Translate, g::RectilinearGrid) = TransformedGrid(g, t)
 
 applycoord(t::Translate, g::OrthoRectilinearGrid) =
-  RectilinearGrid{manifold(g),crs(g)}(ntuple(i -> xyz(g)[i] .+ t.offsets[i], paramdim(g)))
+  RectilinearGrid{manifold(g),crs(g)}(map(.+, xyz(g), t.offsets), topology(g))
 
 applycoord(t::Translate, g::StructuredGrid) = TransformedGrid(g, t)
 
 applycoord(t::Translate, g::OrthoStructuredGrid) =
-  StructuredGrid{manifold(g),crs(g)}(ntuple(i -> XYZ(g)[i] .+ t.offsets[i], paramdim(g)))
+  StructuredGrid{manifold(g),crs(g)}(map(.+, XYZ(g), t.offsets), topology(g))

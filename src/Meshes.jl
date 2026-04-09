@@ -40,6 +40,14 @@ import StatsBase: sample
 import Distances: evaluate
 import NearestNeighbors: MinkowskiMetric
 
+# Differentation API
+import DifferentiationInterface as DI
+import ForwardDiff
+
+# Integration API
+import IntegrationInterface as II
+import HAdaptiveIntegration
+
 # Transforms API
 import TransformsBase: Transform, →
 import TransformsBase: isrevertible, isinvertible
@@ -97,6 +105,10 @@ include("neighborsearch.jl")
 
 # predicates
 include("predicates.jl")
+
+# calculus
+include("differentation.jl")
+include("integration.jl")
 
 # operations
 include("centroid.jl")
@@ -264,6 +276,7 @@ export
   MultiSegment,
   MultiRope,
   MultiRing,
+  MultiChain,
   MultiPolygon,
   MultiPolyhedron,
 
@@ -316,10 +329,8 @@ export
   Coboundary,
   Adjacency,
 
-  # domain traits
+  # domains
   Domain,
-  SubDomain,
-  TransformedDomain,
   embeddim,
   paramdim,
   crs,
@@ -327,21 +338,29 @@ export
   element,
   nelements,
 
+  # subdomains
+  SubDomain,
+  materialize,
+
+  # transformed domains
+  TransformedDomain,
+
   # sets
   GeometrySet,
   PointSet,
 
   # meshes
   Mesh,
-  SimpleMesh,
-  TransformedMesh,
   Grid,
+  SubMesh,
   SubGrid,
+  TransformedMesh,
+  TransformedGrid,
+  SimpleMesh,
   RegularGrid,
   CartesianGrid,
   RectilinearGrid,
   StructuredGrid,
-  TransformedGrid,
   vertex,
   vertices,
   nvertices,
@@ -440,6 +459,13 @@ export
   ≻,
   ⪯,
   ⪰,
+
+  # calculus
+  derivative,
+  jacobian,
+  differential,
+  integral,
+  localintegral,
 
   # centroids
   centroid,
@@ -544,7 +570,6 @@ export
   DelaunayTriangulation,
   ManualSimplexification,
   RegularDiscretization,
-  MaxLengthDiscretization,
   discretize,
   discretizewithin,
   simplexify,
@@ -553,9 +578,9 @@ export
   RefinementMethod,
   TriRefinement,
   QuadRefinement,
-  RegularRefinement,
-  CatmullClarkRefinement,
   TriSubdivision,
+  CatmullClarkRefinement,
+  RegularRefinement,
   MaxLengthRefinement,
   refine,
 

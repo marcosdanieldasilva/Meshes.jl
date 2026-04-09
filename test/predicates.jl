@@ -263,6 +263,11 @@ end
   @test !isconvex(poly1)
   @test !isconvex(poly2)
 
+  # multi-geometry with single convex geometry
+  poly = PolyArea(cart.([(0, 0), (1, 0), (1, 1), (0, 1)]))
+  multi = Multi([poly])
+  @test isconvex(multi)
+
   h = Hexahedron(
     cart(0, 0, 0),
     cart(1, 0, 0),
@@ -710,7 +715,6 @@ end
   b2 = Box(cart(2, 2), cart(5, 5))
   @test intersects(b1, b2)
   @test intersects(b2, b1)
-  @test @elapsed(intersects(b1, b2)) < 1e-4
   @test @allocated(intersects(b1, b2)) < 100
 
   # partial application

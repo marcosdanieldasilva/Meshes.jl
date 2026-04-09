@@ -148,7 +148,7 @@ end
 end
 
 @testitem "BisectPointPartition" setup = [Setup] begin
-  g = CartesianGrid((10, 10), T.((-0.5, -0.5)), T.((1.0, 1.0)))
+  g = CartesianGrid(T.((-0.5, -0.5)), T.((1.0, 1.0)), GridTopology(10, 10))
 
   p = partition(g, BisectPointPartition(T.((0.0, 1.0)), T.((5.0, 5.1))))
   p1, p2 = p[1], p[2]
@@ -181,7 +181,7 @@ end
 end
 
 @testitem "BisectFractionPartition" setup = [Setup] begin
-  g = CartesianGrid((10, 10), T.((-0.5, -0.5)), T.((1.0, 1.0)))
+  g = CartesianGrid(T.((-0.5, -0.5)), T.((1.0, 1.0)), GridTopology(10, 10))
 
   p = partition(g, BisectFractionPartition(T.((1.0, 0.0)), fraction=T(0.2)))
   p1, p2 = p[1], p[2]
@@ -213,7 +213,7 @@ end
   @test p1 == p2
 
   # CRS propagation
-  g = CartesianGrid((10, 10), merc(0, 0), (T(1), T(1)))
+  g = CartesianGrid(merc(0, 0), (T(1), T(1)), GridTopology(10, 10))
   p = partition(g, BisectFractionPartition(T.((1.0, 0.0)), fraction=T(0.2)))
   @test crs(first(p)) === crs(g)
 end
@@ -245,11 +245,11 @@ end
 end
 
 @testitem "PlanePartition" setup = [Setup] begin
-  g = CartesianGrid((3, 3), T.((-0.5, -0.5)), T.((1.0, 1.0)))
+  g = CartesianGrid(T.((-0.5, -0.5)), T.((1.0, 1.0)), GridTopology(3, 3))
   p = partition(g, PlanePartition(T.((0, 1))))
   @test setify(indices(p)) == setify([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
 
-  g = CartesianGrid((4, 4), T.((-0.5, -0.5)), T.((1.0, 1.0)))
+  g = CartesianGrid(T.((-0.5, -0.5)), T.((1.0, 1.0)), GridTopology(4, 4))
   p = partition(g, PlanePartition(T.((0, 1))))
   @test setify(indices(p)) == setify([1:4, 5:8, 9:12, 13:16])
 
@@ -263,7 +263,7 @@ end
 end
 
 @testitem "IndexPredicatePartition" setup = [Setup] begin
-  g = CartesianGrid((3, 3), T.((-0.5, -0.5)), T.((1.0, 1.0)))
+  g = CartesianGrid(T.((-0.5, -0.5)), T.((1.0, 1.0)), GridTopology(3, 3))
 
   # partition even from odd locations
   pred(i, j) = iseven(i + j)
@@ -281,7 +281,7 @@ end
 end
 
 @testitem "PointPredicatePartition" setup = [Setup] begin
-  g = CartesianGrid((10, 10), T.((-0.5, -0.5)), T.((1.0, 1.0)))
+  g = CartesianGrid(T.((-0.5, -0.5)), T.((1.0, 1.0)), GridTopology(10, 10))
 
   # check if there are 100 partitions, each one having only 1 point
   sp = PointPredicatePartition((pᵢ, pⱼ) -> norm(pᵢ - pⱼ) < T(1) * u"m")
@@ -315,7 +315,7 @@ end
 end
 
 @testitem "ProductPartition" setup = [Setup] begin
-  g = CartesianGrid((100, 100), T.((-0.5, -0.5)), T.((1.0, 1.0)))
+  g = CartesianGrid(T.((-0.5, -0.5)), T.((1.0, 1.0)), GridTopology(100, 100))
   bm = BlockPartition(T(10), T(10))
   bn = BlockPartition(T(5), T(5))
   bmn = ProductPartition(bm, bn)
@@ -359,7 +359,7 @@ end
 end
 
 @testitem "HierarchicalPartition" setup = [Setup] begin
-  g = CartesianGrid((100, 100), T.((-0.5, -0.5)), T.((1.0, 1.0)))
+  g = CartesianGrid(T.((-0.5, -0.5)), T.((1.0, 1.0)), GridTopology(100, 100))
   bm = BlockPartition(T(10), T(10))
   bn = BlockPartition(T(5), T(5))
   bmn = HierarchicalPartition(bm, bn)
@@ -379,14 +379,24 @@ end
 end
 
 @testitem "Misc partition" setup = [Setup] begin
-  g = CartesianGrid((100, 100), T.((-0.5, -0.5)), T.((1.0, 1.0)))
+  # Bm*Bn = Bm->Bn
+  g = CartesianGrid(T.((-0.5, -0.5)), T.((1.0, 1.0)), GridTopology(100, 100))
   bm = BlockPartition(T(10), T(10))
   bn = BlockPartition(T(5), T(5))
   bmn = ProductPartition(bm, bn)
   hmn = HierarchicalPartition(bm, bn)
-
-  # Bm*Bn = Bm->Bn
   s1 = indices(partition(g, bmn))
   s2 = indices(partition(g, hmn))
   @test setify(s1) == setify(s2)
+
+  # show methods
+  g = cartgrid(10, 10)
+  p = partition(g, BlockPartition(5, 5))
+  @test sprint(show, p) == "4 Partition"
+  @test sprint(show, MIME("text/plain"), p) == """
+  4 Partition
+  ├─ 25 view(::CartesianGrid, [1, 2, 3, 4, ..., 42, 43, 44, 45])
+  ├─ 25 view(::CartesianGrid, [6, 7, 8, 9, ..., 47, 48, 49, 50])
+  ├─ 25 view(::CartesianGrid, [51, 52, 53, 54, ..., 92, 93, 94, 95])
+  └─ 25 view(::CartesianGrid, [56, 57, 58, 59, ..., 97, 98, 99, 100])"""
 end

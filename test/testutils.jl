@@ -56,17 +56,6 @@ function readpoly(T, fname)
   end
 end
 
-# helper function to read *.ply files containing meshes
-function readply(T, fname)
-  ply = load_ply(fname)
-  x = T.(ply["vertex"]["x"])
-  y = T.(ply["vertex"]["y"])
-  z = T.(ply["vertex"]["z"])
-  points = Point.(x, y, z)
-  connec = [connect(Tuple(c .+ 1)) for c in ply["face"]["vertex_indices"]]
-  SimpleMesh(points, connec)
-end
-
 # --------------
 # CRS FUNCTIONS
 # --------------
@@ -88,8 +77,7 @@ cartgrid(T::Type, dims...) = cartgrid(T, dims)
 function cartgrid(T::Type, dims::Dims{Dim}) where {Dim}
   origin = ntuple(i -> T(0.0), Dim)
   spacing = ntuple(i -> T(1.0), Dim)
-  offset = ntuple(i -> 1, Dim)
-  CartesianGrid(dims, origin, spacing, offset)
+  CartesianGrid(origin, spacing, GridTopology(dims))
 end
 
 randcart(T, Dim, n) = [Point(ntuple(i -> rand(T), Dim)) for _ in 1:n]
@@ -99,9 +87,6 @@ cart(xs...) = cart(T, xs...)
 merc(xs...) = merc(T, xs...)
 latlon(xs...) = latlon(T, xs...)
 vector(xs...) = vector(T, xs...)
-randpoint1(n) = randcart(T, 1, n)
-randpoint2(n) = randcart(T, 2, n)
-randpoint3(n) = randcart(T, 3, n)
 
 # ----------------
 # OTHER FUNCTIONS

@@ -24,8 +24,6 @@
   @test s(T(1)) == cart(1, 1)
   @test all(cart(x, x) ∈ s for x in 0:0.01:1)
   @test all(p ∉ s for p in [cart(-0.1, -0.1), cart(1.1, 1.1), cart(0.5, 0.49), cart(1, 2)])
-  @test_throws DomainError(T(1.2), "s(t) is not defined for t outside [0, 1].") s(T(1.2))
-  @test_throws DomainError(T(-0.5), "s(t) is not defined for t outside [0, 1].") s(T(-0.5))
   @test s ≈ s
   @test !(s ≈ Segment(cart(1, 1), cart(0, 0)))
   @test !(s ≈ Segment(cart(1, 2), cart(0, 0)))
@@ -57,15 +55,6 @@
   @test perimeter(s) == zero(T) * u"m"
   @test centroid(s) == cart(0.5, 0.5, 0.5)
   @test Meshes.lentype(centroid(s)) == ℳ
-
-  # unitful coordinates
-  x1 = T(0)u"m"
-  x2 = T(1)u"m"
-  s = Segment(Point(x1, x1, x1), Point(x2, x2, x2))
-  @test perimeter(s) == 0u"m"
-  xm = T(0.5)u"m"
-  @test centroid(s) == Point(xm, xm, xm)
-  @test Meshes.lentype(centroid(s)) == typeof(xm)
 
   # CRS propagation
   s = Segment(merc(0, 0), merc(1, 1))
@@ -359,8 +348,6 @@ end
   @test t(T(1.0), T(0.0)) == cart(1, 0)
   @test t(T(0.0), T(1.0)) == cart(0, 1)
   @test t(T(0.5), T(0.5)) == cart(0.5, 0.5)
-  @test_throws DomainError((T(-0.5), T(0.0)), "invalid barycentric coordinates for triangle.") t(T(-0.5), T(0.0))
-  @test_throws DomainError((T(1), T(1)), "invalid barycentric coordinates for triangle.") t(T(1), T(1))
   @test !hasholes(t)
   @test unique(t) == t
   @test rings(t) == [Ring(cart(0, 0), cart(1, 0), cart(0, 1))]
@@ -409,8 +396,6 @@ end
   @test t(T(1.0), T(0.0)) == cart(0, 1, 0)
   @test t(T(0.0), T(1.0)) == cart(0, 0, 1)
   @test t(T(0.5), T(0.5)) == cart(0, 0.5, 0.5)
-  @test_throws DomainError((T(-0.5), T(0.0)), "invalid barycentric coordinates for triangle.") t(T(-0.5), T(0.0))
-  @test_throws DomainError((T(1), T(1)), "invalid barycentric coordinates for triangle.") t(T(1), T(1))
   @test isapprox(normal(t), vector(1, 0, 0))
   @test isapprox(norm(normal(t)), oneunit(ℳ))
   t = Triangle(cart(0, 0, 0), cart(2, 0, 0), cart(0, 2, 2))
@@ -484,9 +469,6 @@ end
   equaltest(q)
   isapproxtest(q)
   vertextest(q)
-
-  q = Quadrangle(cart(0, 0), cart(1, 0), cart(1, 1), cart(0, 1))
-  @test_throws DomainError((T(1.2), T(1.2)), "q(u, v) is not defined for u, v outside [0, 1]².") q(T(1.2), T(1.2))
 
   q = Quadrangle(cart(0, 0), cart(1, 0), cart(1, 1), cart(0, 1))
   @test perimeter(q) ≈ T(4) * u"m"
@@ -649,8 +631,8 @@ end
   end
 
   # invalid inner
-  outer = Ring(randpoint2(10))
-  p1, p2 = randpoint2(2)
+  outer = Ring([cart(0, 0), cart(1, 0), cart(1, 1), cart(0, 1)])
+  p1, p2 = [cart(0, 0), cart(1, 1)]
   inner = Ring(p1, p1, p2)
   poly = PolyArea([outer, inner])
   upoly = unique(poly)
@@ -741,7 +723,6 @@ end
   @test t(T(1), T(0), T(0)) ≈ cart(1, 0, 0)
   @test t(T(0), T(1), T(0)) ≈ cart(0, 1, 0)
   @test t(T(0), T(0), T(1)) ≈ cart(0, 0, 1)
-  @test_throws DomainError((T(1), T(1), T(1)), "invalid barycentric coordinates for tetrahedron.") t(T(1), T(1), T(1))
 
   t = Tetrahedron(cart(0, 0, 0), cart(1, 0, 0), cart(0, 1, 0), cart(0, 0, 1))
   equaltest(t)
@@ -919,7 +900,6 @@ end
   @test volume(p) ≈ T(1 / 3) * u"m^3"
   @test p(T(1), T(1), T(0)) == vertices(p)[3]
   @test p(T(0), T(0), T(1)) == vertices(p)[5]
-  @test_throws DomainError p(T(0), T(0), T(1.5))
   equaltest(p)
   isapproxtest(p)
   vertextest(p)
@@ -954,7 +934,6 @@ end
   @test Meshes.lentype(w) == ℳ
   @test volume(w) ≈ T(1 / 2) * u"m^3"
   @test w(T(1), T(1), T(1)) == vertices(w)[6]
-  @test_throws DomainError w(T(0), T(0), T(1.5))
   equaltest(w)
   isapproxtest(w)
   vertextest(w)

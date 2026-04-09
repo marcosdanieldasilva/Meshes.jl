@@ -110,13 +110,6 @@ bounding box of the `domain`.
 """
 Base.extrema(d::Domain) = extrema(boundingbox(d))
 
-"""
-    topology(domain)
-
-Return the topological structure of the `domain`.
-"""
-topology(d::Domain) = d.topology
-
 # -----------
 # IO METHODS
 # -----------
@@ -139,11 +132,11 @@ end
 # IMPLEMENTATIONS
 # ----------------
 
-include("domains/sets.jl")
+include("domains/subdomains.jl")
+include("domains/geomsets.jl")
 include("domains/meshes.jl")
 include("domains/trajecs.jl")
-include("domains/subdomains.jl")
-include("domains/transformeddomain.jl")
+include("domains/transfdomains.jl")
 
 # ------------
 # CONVERSIONS
@@ -153,6 +146,6 @@ Base.convert(::Type{GeometrySet}, d::Domain) = GeometrySet(collect(d))
 
 Base.convert(::Type{SimpleMesh}, m::Mesh) = SimpleMesh(vertices(m), topology(m))
 
-Base.convert(::Type{StructuredGrid}, g::Grid) = StructuredGrid{manifold(g),crs(g)}(XYZ(g))
+Base.convert(::Type{StructuredGrid}, g::Grid) = StructuredGrid{manifold(g),crs(g)}(XYZ(g), topology(g))
 
-Base.convert(::Type{RectilinearGrid}, g::RegularGrid) = RectilinearGrid{manifold(g),crs(g)}(xyz(g))
+Base.convert(::Type{RectilinearGrid}, g::RegularGrid) = RectilinearGrid{manifold(g),crs(g)}(xyz(g), topology(g))

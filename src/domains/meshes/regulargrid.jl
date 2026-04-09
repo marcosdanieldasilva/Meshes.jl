@@ -3,51 +3,46 @@
 # ------------------------------------------------------------------
 
 """
-    RegularGrid(dims, origin, spacing)
+    RegularGrid(min, max; dims=dims)
 
-A regular grid with dimensions `dims`, lower left corner at `origin`
-and cell spacing `spacing`. The three arguments must have the same length.
+A regular grid from `min` point to `max` point with dimensions `dims`.
+The number of dimensions must match the number of coordinates of the points.
 
-    RegularGrid(dims, origin, spacing, offset)
+    RegularGrid(min, max, spacing)
 
-A regular grid with dimensions `dims`, with lower left corner of element
-`offset` at `origin` and cell spacing `spacing`.
-
-    RegularGrid(start, finish, dims=dims)
-
-Alternatively, construct a regular grid from a `start` point to a `finish`
-with dimensions `dims`.
-
-    RegularGrid(start, finish, spacing)
-
-Alternatively, construct a regular grid from a `start` point to a `finish`
-point using a given `spacing`.
+Alternatively, construct a regular grid from `min` point to `max` point
+by specifying the `spacing` for each dimension.
 
     RegularGrid(dims)
-    RegularGrid(dim1, dim2, ...)
+    RegularGrid(dim₁, dim₂, ...)
 
-Finally, a regular grid can be constructed by only passing the dimensions
-`dims` as a tuple, or by passing each dimension `dim1`, `dim2`, ... separately.
-In this case, the origin and spacing default to (0,0,...) and (1,1,...).
+Alternatively, construct a regular grid with dimensions `dims = (dim₁, dim₂, ...)`,
+min point at `(0m, 0m, ...)` and spacing equal to `(1m, 1m, ...)`.
+
+    RegularGrid(origin, spacing, topology)
+
+Finally, construct a regular grid with `origin` point, `spacing` and grid `topology`.
+This method is available for advanced use cases involving periodic dimensions. See
+[`GridTopology`](@ref) for more details.
 
 ## Examples
 
-Create a 3D grid with 100x100x50 hexahedrons:
-
-```julia
-julia> RegularGrid(100, 100, 50)
-```
-
-Create a 2D grid with 100 x 100 quadrangles and origin at (10.0, 20.0):
-
-```julia
-julia> RegularGrid((100, 100), (10.0, 20.0), (1.0, 1.0))
-```
-
-Create a 1D grid from -1 to 1 with 100 segments:
+Create a 1D grid from -1.0 to 1.0 with 100 segments:
 
 ```julia
 julia> RegularGrid((-1.0,), (1.0,), dims=(100,))
+```
+
+Create a 2D grid with quadrangles of size (1.0, 2.0):
+
+```julia
+julia> RegularGrid((0.0, 0.0), (10.0, 20.0), (1.0, 2.0))
+```
+
+Create a 3D grid with 100x100x50 hexahedra:
+
+```julia
+julia> RegularGrid(100, 100, 50)
 ```
 
 See also [`CartesianGrid`](@ref).
@@ -55,21 +50,19 @@ See also [`CartesianGrid`](@ref).
 struct RegularGrid{M<:Manifold,C<:CRS,N,S<:NTuple{N,Quantity}} <: Grid{M,C,N}
   origin::Point{M,C}
   spacing::S
-  offset::Dims{N}
   topology::GridTopology{N}
 
-  function RegularGrid{M,C,N,S}(origin, spacing, offset, topology) where {M<:Manifold,C<:CRS,N,S<:NTuple{N,Quantity}}
+  function RegularGrid{M,C,N,S}(origin, spacing, topology) where {M<:Manifold,C<:CRS,N,S<:NTuple{N,Quantity}}
     if !all(s -> s > zero(s), spacing)
       throw(ArgumentError("spacing must be positive"))
     end
-    new(origin, spacing, offset, topology)
+    new(origin, spacing, topology)
   end
 end
 
 function RegularGrid(
   origin::Point{M,C},
   spacing::NTuple{N,Number},
-  offset::Dims{N},
   topology::GridTopology{N}
 ) where {M<:Manifold,C<:CRS,N}
   _checkorigin(origin)
@@ -85,66 +78,47 @@ function RegularGrid(
 
   spac = _spacing(origin, spacing)
 
-  RegularGrid{M,C,N,typeof(spac)}(origin, spac, offset, topology)
+  RegularGrid{M,C,N,typeof(spac)}(origin, spac, topology)
 end
 
-function RegularGrid(
-  dims::Dims{N},
-  origin::Point,
-  spacing::NTuple{N,Number},
-  offset::Dims{N}=ntuple(i -> 1, N)
-) where {N}
-  if !all(>(0), dims)
-    throw(ArgumentError("dimensions must be positive"))
-  end
-  RegularGrid(origin, spacing, offset, GridTopology(dims))
+RegularGrid(origin::NTuple{N,Number}, spacing::NTuple{N,Number}, topology::GridTopology{N}) where {N} =
+  RegularGrid(Point(origin), spacing, topology)
+
+function RegularGrid(min::Point, max::Point, spacing::NTuple{N,Number}) where {N}
+  _checkorigin(min)
+  cmin, cmax = _minmaxcoords(min, max)
+  spac = _spacing(min, spacing)
+  dims = ceil.(Int, (cmax .- cmin) ./ spac)
+  RegularGrid(min, spac, GridTopology(dims))
 end
 
-RegularGrid(
-  dims::Dims{Dim},
-  origin::NTuple{Dim,Number},
-  spacing::NTuple{Dim,Number},
-  offset::Dims{Dim}=ntuple(i -> 1, Dim)
-) where {Dim} = RegularGrid(dims, Point(origin), spacing, offset)
+RegularGrid(min::NTuple{N,Number}, max::NTuple{N,Number}, spacing::NTuple{N,Number}) where {N} =
+  RegularGrid(Point(min), Point(max), spacing)
 
-function RegularGrid(start::Point, finish::Point, spacing::NTuple{N,Number}) where {N}
-  _checkorigin(start)
-  svals, fvals = _startfinish(start, finish)
-  spac = _spacing(start, spacing)
-  dims = ceil.(Int, (fvals .- svals) ./ spac)
-  RegularGrid(dims, start, spac)
+function RegularGrid(min::Point, max::Point; dims::Dims=ntuple(i -> 100, CoordRefSystems.ncoords(crs(min))))
+  _checkorigin(min)
+  cmin, cmax = _minmaxcoords(min, max)
+  spac = (cmax .- cmin) ./ dims
+  RegularGrid(min, spac, GridTopology(dims))
 end
 
-RegularGrid(start::NTuple{Dim,Number}, finish::NTuple{Dim,Number}, spacing::NTuple{Dim,Number}) where {Dim} =
-  RegularGrid(Point(start), Point(finish), spacing)
+RegularGrid(min::NTuple{N,Number}, max::NTuple{N,Number}; dims::Dims{N}=ntuple(i -> 100, N)) where {N} =
+  RegularGrid(Point(min), Point(max); dims)
 
-function RegularGrid(start::Point, finish::Point; dims::Dims=ntuple(i -> 100, CoordRefSystems.ncoords(crs(start))))
-  _checkorigin(start)
-  svals, fvals = _startfinish(start, finish)
-  spacing = (fvals .- svals) ./ dims
-  RegularGrid(dims, start, spacing)
-end
-
-RegularGrid(start::NTuple{Dim,Number}, finish::NTuple{Dim,Number}; dims::Dims{Dim}=ntuple(i -> 100, Dim)) where {Dim} =
-  RegularGrid(Point(start), Point(finish); dims)
-
-function RegularGrid(dims::Dims{Dim}) where {Dim}
-  origin = ntuple(i -> 0.0, Dim)
-  spacing = ntuple(i -> 1.0, Dim)
-  offset = ntuple(i -> 1, Dim)
-  RegularGrid(dims, origin, spacing, offset)
+function RegularGrid(dims::Dims{N}) where {N}
+  orig = ntuple(i -> 0.0, N)
+  spac = ntuple(i -> 1.0, N)
+  RegularGrid(orig, spac, GridTopology(dims))
 end
 
 RegularGrid(dims::Int...) = RegularGrid(dims)
 
 spacing(g::RegularGrid) = g.spacing
 
-offset(g::RegularGrid) = g.offset
-
 function vertex(g::RegularGrid, ijk::Dims)
   ctor = CoordRefSystems.constructor(crs(g))
   orig = CoordRefSystems.values(coords(g.origin))
-  vals = orig .+ (ijk .- g.offset) .* g.spacing
+  vals = orig .+ (ijk .- 1) .* g.spacing
   Point(ctor(vals...))
 end
 
@@ -165,15 +139,16 @@ XYZ(g::RegularGrid) = XYZ(xyz(g))
 
 function Base.getindex(g::RegularGrid, I::CartesianIndices)
   @boundscheck _checkbounds(g, I)
-  dims = size(I)
-  offset = g.offset .- Tuple(first(I)) .+ 1
-  RegularGrid(dims, g.origin, g.spacing, offset)
+  orig = vertex(g, Tuple(first(I)))
+  spac = spacing(g)
+  topo = GridTopology(size(I), isperiodic(topology(g)))
+  RegularGrid(orig, spac, topo)
 end
 
 function ==(g₁::RegularGrid, g₂::RegularGrid)
   orig₁ = CoordRefSystems.values(coords(g₁.origin))
   orig₂ = CoordRefSystems.values(coords(g₂.origin))
-  g₁.topology == g₂.topology && g₁.spacing == g₂.spacing && orig₁ .- orig₂ == (g₁.offset .- g₂.offset) .* g₁.spacing
+  orig₁ == orig₂ && g₁.spacing == g₂.spacing && g₁.topology == g₂.topology
 end
 
 # -----------
@@ -212,19 +187,18 @@ function _spacing(origin, spacing)
   ntuple(i -> numconvert(T, withunit(spacing[i], us[i])), nc)
 end
 
-function _startfinish(start::Point{<:𝔼}, finish::Point{<:𝔼})
-  scoords = coords(start)
-  fcoords = convert(crs(start), coords(finish))
-  svals = CoordRefSystems.values(scoords)
-  fvals = CoordRefSystems.values(fcoords)
-  svals, fvals
+function _minmaxcoords(min::Point{<:𝔼}, max::Point{<:𝔼})
+  mincoords = coords(min)
+  maxcoords = convert(crs(min), coords(max))
+  minvalues = CoordRefSystems.values(mincoords)
+  maxvalues = CoordRefSystems.values(maxcoords)
+  minvalues, maxvalues
 end
 
-function _startfinish(start::Point{<:🌐}, finish::Point{<:🌐})
-  slatlon = convert(LatLon, coords(start))
-  flatlon = convert(LatLon, coords(finish))
-  slon = flatlon.lon < slatlon.lon ? slatlon.lon - 360u"°" : slatlon.lon
-  svals = (slatlon.lat, slon)
-  fvals = (flatlon.lat, flatlon.lon)
-  svals, fvals
+function _minmaxcoords(min::Point{<:🌐}, max::Point{<:🌐})
+  mincoords = convert(LatLon, coords(min))
+  maxcoords = convert(LatLon, coords(max))
+  minvalues = (mincoords.lat, maxcoords.lon < mincoords.lon ? mincoords.lon - 360u"°" : mincoords.lon)
+  maxvalues = (maxcoords.lat, maxcoords.lon)
+  minvalues, maxvalues
 end

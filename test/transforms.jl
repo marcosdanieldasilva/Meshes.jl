@@ -367,7 +367,7 @@ end
   # ------------
 
   f = Translate(T(1), T(1))
-  d = RegularGrid((8, 8), Point(Polar(T(0), T(0))), (T(1), T(π / 4)))
+  d = RegularGrid(Point(Polar(T(0), T(0))), (T(1), T(π / 4)), GridTopology(8, 8))
   r, c = TB.apply(f, d)
   @test r ≈ SimpleMesh(f.(vertices(d)), topology(d))
   @test TB.revert(f, r, c) ≈ d
@@ -395,7 +395,7 @@ end
   @test TB.revert(f, r, c) ≈ d
 
   f = Translate(T(1), T(1))
-  g = RegularGrid((8, 8), Point(Polar(T(0), T(0))), (T(1), T(π / 4)))
+  g = RegularGrid(Point(Polar(T(0), T(0))), (T(1), T(π / 4)), GridTopology(8, 8))
   d = convert(RectilinearGrid, g)
   r, c = TB.apply(f, d)
   @test r ≈ SimpleMesh(f.(vertices(d)), topology(d))
@@ -413,10 +413,22 @@ end
   @test TB.revert(f, r, c) ≈ d
 
   f = Translate(T(1), T(1))
-  g = RegularGrid((8, 8), Point(Polar(T(0), T(0))), (T(1), T(π / 4)))
+  g = RegularGrid(Point(Polar(T(0), T(0))), (T(1), T(π / 4)), GridTopology(8, 8))
   d = convert(StructuredGrid, g)
   r, c = TB.apply(f, d)
   @test r ≈ SimpleMesh(f.(vertices(d)), topology(d))
+  @test TB.revert(f, r, c) ≈ d
+
+  # ncoords ≠ paramdim
+  f = Translate(T(1), T(1), T(1))
+  X = rand(T, 11, 21)
+  Y = rand(T, 11, 21)
+  Z = rand(T, 11, 21)
+  t = GridTopology(10, 20)
+  d = StructuredGrid((X, Y, Z), t)
+  r, c = TB.apply(f, d)
+  @test r isa StructuredGrid
+  @test all(Meshes.XYZ(r) .≈ map(.+, Meshes.XYZ(d), (T(1)u"m", T(1)u"m", T(1)u"m")))
   @test TB.revert(f, r, c) ≈ d
 
   # -----------
@@ -1034,6 +1046,18 @@ end
   @test r ≈ SimpleMesh(f.(vertices(d)), topology(d))
   @test TB.revert(f, r, c) ≈ d
 
+  # ncoords ≠ paramdim
+  f = Scale(T(2))
+  X = rand(T, 11, 21)
+  Y = rand(T, 11, 21)
+  Z = rand(T, 11, 21)
+  t = GridTopology(10, 20)
+  d = StructuredGrid((X, Y, Z), t)
+  r, c = TB.apply(f, d)
+  @test r isa StructuredGrid
+  @test all(Meshes.XYZ(r) .≈ T(2) .* Meshes.XYZ(d))
+  @test TB.revert(f, r, c) ≈ d
+
   # -----------
   # SIMPLEMESH
   # -----------
@@ -1220,7 +1244,7 @@ end
   # ---------
 
   f = StdCoords()
-  d = view(PointSet(randpoint2(100)), 1:50)
+  d = PointSet([cart(rand(T), rand(T)) for _ in 1:10])
   r, c = TB.apply(f, d)
   @test all(sides(boundingbox(r)) .≤ oneunit(ℳ))
   @test TB.revert(f, r, c) ≈ d
@@ -1381,7 +1405,7 @@ end
   # --------------
 
   f = Proj(Polar)
-  d = CartesianGrid((10, 10), cart(1, 1), T.((1, 1)))
+  d = CartesianGrid(cart(1, 1), T.((1, 1)), GridTopology(10, 10))
   r, c = TB.apply(f, d)
   @test r ≈ SimpleMesh(f.(vertices(d)), topology(d))
 
@@ -1419,7 +1443,7 @@ end
   # ----------
 
   f = Proj(Polar)
-  g = CartesianGrid((10, 10), cart(1, 1), T.((1, 1)))
+  g = CartesianGrid(cart(1, 1), T.((1, 1)), GridTopology(10, 10))
   d = view(g, 1:10)
   r, c = TB.apply(f, d)
   @test r ≈ view(SimpleMesh(f.(vertices(g)), topology(g)), 1:10)
@@ -1568,7 +1592,7 @@ end
   # --------------
 
   f = Morphological(c -> Cartesian(c.x, c.y, zero(c.x)))
-  d = CartesianGrid((10, 10), cart(1, 1), T.((1, 1)))
+  d = CartesianGrid(cart(1, 1), T.((1, 1)), GridTopology(10, 10))
   r, c = TB.apply(f, d)
   @test r ≈ SimpleMesh(f.(vertices(d)), topology(d))
 
@@ -1884,19 +1908,23 @@ end
   # ------------
 
   f = LengthUnit(u"cm")
-  d = RegularGrid((8, 8), Point(Polar(T(1), T(0))), (T(1), T(π / 4)))
+  d = RegularGrid(Point(Polar(T(1), T(0))), (T(1), T(π / 4)), GridTopology(8, 8))
   r, c = TB.apply(f, d)
-  @test r ≈ RegularGrid((8, 8), Point(Polar(T(100) * u"cm", T(0) * u"rad")), (T(100) * u"cm", T(π / 4) * u"rad"))
+  @test r ≈ RegularGrid(
+    Point(Polar(T(100) * u"cm", T(0) * u"rad")),
+    (T(100) * u"cm", T(π / 4) * u"rad"),
+    GridTopology(8, 8)
+  )
 
   # --------------
   # CARTESIANGRID
   # --------------
 
   f = LengthUnit(u"km")
-  d = CartesianGrid((10, 10), cart(1000, 1000), T.((1000, 1000)))
+  d = CartesianGrid(cart(1000, 1000), T.((1000, 1000)), GridTopology(10, 10))
   r, c = TB.apply(f, d)
   @test r isa CartesianGrid
-  @test r ≈ CartesianGrid((10, 10), Point(T(1) * u"km", T(1) * u"km"), (T(1) * u"km", T(1) * u"km"))
+  @test r ≈ CartesianGrid(Point(T(1) * u"km", T(1) * u"km"), (T(1) * u"km", T(1) * u"km"), GridTopology(10, 10))
 
   # ----------------
   # RECTILINEARGRID
@@ -2210,7 +2238,7 @@ end
   # ------------
 
   f = Shadow(:yz)
-  d = RegularGrid((8, 8, 8), Point(Cylindrical(T(0), T(0), T(0))), (T(1), T(π / 4), T(1)))
+  d = RegularGrid(Point(Cylindrical(T(0), T(0), T(0))), (T(1), T(π / 4), T(1)), GridTopology(8, 8, 8))
   r, c = TB.apply(f, d)
   @test r == SimpleMesh(f.(vertices(d)), topology(d))
 
@@ -2219,10 +2247,10 @@ end
   # --------------
 
   f = Shadow(:yz)
-  d = CartesianGrid((10, 11, 12), cart(1, 2, 3), T.((1.0, 1.1, 1.2)))
+  d = CartesianGrid(cart(1, 2, 3), T.((1.0, 1.1, 1.2)), GridTopology(10, 11, 12))
   r, c = TB.apply(f, d)
   @test r isa CartesianGrid
-  @test r == CartesianGrid((11, 12), cart(2, 3), T.((1.1, 1.2)))
+  @test r == CartesianGrid(cart(2, 3), T.((1.1, 1.2)), GridTopology(11, 12))
 
   # ----------------
   # RECTILINEARGRID
@@ -2272,7 +2300,7 @@ end
   d = cartgrid(10, 10, 10)
   r, c = TB.apply(f, d)
   @test r isa CartesianGrid
-  @test r == CartesianGrid((10, 10, 4), cart(0, 0, 1), T.((1, 1, 1)))
+  @test r == CartesianGrid(cart(0, 0, 1), T.((1, 1, 1)), GridTopology(10, 10, 4))
 
   # ----------------
   # RECTILINEARGRID
@@ -2282,7 +2310,7 @@ end
   d = convert(RectilinearGrid, cartgrid(10, 10))
   r, c = TB.apply(f, d)
   @test r isa RectilinearGrid
-  @test r == convert(RectilinearGrid, CartesianGrid((10, 4), cart(0, 3), T.((1, 1))))
+  @test r == convert(RectilinearGrid, CartesianGrid(cart(0, 3), T.((1, 1)), GridTopology(10, 4)))
 end
 
 @testitem "Repair(0)" setup = [Setup] begin
@@ -2325,7 +2353,7 @@ end
 
 @testitem "Repair(7)" setup = [Setup] begin
   # mesh with inconsistent orientation
-  points = randpoint3(6)
+  points = [cart(rand(T), rand(T), rand(T)) for _ in 1:6]
   connec = connect.([(1, 2, 3), (3, 4, 2), (4, 3, 5), (6, 3, 1)])
   mesh = SimpleMesh(points, connec)
   rmesh = mesh |> Repair(7)
@@ -2352,6 +2380,14 @@ end
   @test !hasholes(rpoly)
   @test rings(rpoly) == [Ring(cart(0, 0))]
   @test vertices(rpoly) == [cart(0, 0)]
+
+  # triangle with LatLon coordinates doesn't take forever to repair
+  p1 = latlon(-7.203501929837444, -52.717445221483445)
+  p2 = latlon(-7.289858499430579, -52.74748228916803)
+  p3 = latlon(-7.417676396987474, -52.79194068831828)
+  tri = Triangle(p1, p2, p3)
+  rtri = tri |> Repair(8)
+  @test rtri == tri
 end
 
 @testitem "Repair(9)" setup = [Setup] begin
@@ -2535,7 +2571,7 @@ end
   # smoothing doesn't change the topology
   trans = LaplaceSmoothing(30)
   @test TB.isrevertible(trans)
-  mesh = readply(T, joinpath(datadir, "beethoven.ply"))
+  mesh = discretize(Sphere(cart(0, 0, 0), T(1)))
   smesh = trans(mesh)
   @test nvertices(smesh) == nvertices(mesh)
   @test nelements(smesh) == nelements(mesh)
@@ -2544,9 +2580,19 @@ end
   # smoothing doesn't change the topology
   trans = TaubinSmoothing(30)
   @test TB.isrevertible(trans)
-  mesh = readply(T, joinpath(datadir, "beethoven.ply"))
+  mesh = discretize(Sphere(cart(0, 0, 0), T(1)))
   smesh = trans(mesh)
   @test nvertices(smesh) == nvertices(mesh)
   @test nelements(smesh) == nelements(mesh)
   @test topology(smesh) == topology(mesh)
+end
+
+@testitem "Miscellaneous transforms" setup = [Setup] begin
+  # make sure projection of subgrid is only applied
+  # to elements of the subgrid, not the parent grid
+  grid = RegularGrid(latlon(-90, -180), latlon(90, 180), dims=(10, 10))
+  vgrid = grid |> ValidCoords(Mercator)
+  pgrid = vgrid |> Proj(Mercator)
+  @test pgrid isa TransformedDomain
+  @test nelements(pgrid) == nelements(vgrid)
 end

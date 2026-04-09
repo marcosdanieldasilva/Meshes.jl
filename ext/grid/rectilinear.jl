@@ -23,21 +23,15 @@ function vizgrid!(plot::Viz{<:Tuple{RectilinearGrid}}, M::Type{<:𝔼}, pdim::Va
     xs = Makie.@lift $xyz[1]
     ys = Makie.@lift $xyz[2]
 
-    if nc[] == 1
-      # visualize bounding box with single color for maximum performance
-      bbox = Makie.@lift boundingbox($grid)
-      viz!(plot, bbox, color=colorant)
+    if nc[] == nv[]
+      # visualize as a simple mesh so that
+      # colors can be specified at vertices
+      vizmesh!(plot)
     else
-      if nc[] == nv[]
-        # visualize as a simple mesh so that
-        # colors can be specified at vertices
-        vizmesh!(plot)
-      else
-        # visualize as built-in heatmap
-        sz = Makie.@lift size($grid)
-        C = Makie.@lift reshape($colorant, $sz)
-        Makie.heatmap!(plot, xs, ys, C)
-      end
+      # visualize as built-in heatmap
+      sz = Makie.@lift size($grid)
+      C = Makie.@lift $nc == 1 ? fill($colorant, $sz) : reshape($colorant, $sz)
+      Makie.heatmap!(plot, xs, ys, C)
     end
 
     if showsegments[]
@@ -53,8 +47,12 @@ function vizgridfacets!(plot::Viz{<:Tuple{RectilinearGrid}}, ::Type{<:𝔼}, ::V
   segmentcolor = plot[:segmentcolor]
   segmentsize = plot[:segmentsize]
 
-  xyz = Makie.@lift map(x -> ustrip.(x), Meshes.xyz($grid))
-  tup = Makie.@lift xysegments($xyz...)
-  x, y = Makie.@lift($tup[1]), Makie.@lift($tup[2])
+  xy = Makie.@lift let
+    x, y = Meshes.xyz($grid)
+    xysegments(ustrip.(x), ustrip.(y))
+  end
+  x = Makie.@lift $xy[1]
+  y = Makie.@lift $xy[2]
+
   Makie.lines!(plot, x, y, color=segmentcolor, linewidth=segmentsize)
 end

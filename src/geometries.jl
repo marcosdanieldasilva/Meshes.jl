@@ -87,19 +87,15 @@ end
 
 include("geometries/primitives.jl")
 include("geometries/polytopes.jl")
-include("geometries/multigeom.jl")
-include("geometries/transformedgeom.jl")
+include("geometries/multigeoms.jl")
+include("geometries/transfgeoms.jl")
 
 # ------------
 # CONVERSIONS
 # ------------
 
-function Base.convert(::Type{<:Quadrangle}, b::Box)
-  checkdim(b, 2)
-  Quadrangle(vertices(boundary(b))...)
-end
+Base.convert(::Type{<:Quadrangle}, b::Box{𝔼{2}}) = Quadrangle(vertices(boundary(b))...)
 
-function Base.convert(::Type{<:Hexahedron}, b::Box)
-  checkdim(b, 3)
-  Hexahedron(vertices(boundary(b))...)
-end
+Base.convert(::Type{<:Quadrangle}, b::Box{<:🌐}) = Quadrangle(vertices(boundary(b))...)
+
+Base.convert(::Type{<:Hexahedron}, b::Box{𝔼{3}}) = Hexahedron(vertices(boundary(b))...)

@@ -479,82 +479,79 @@ end
   @test all(intersects(tri), mesh)
 end
 
-@testitem "MaxLengthDiscretization" setup = [Setup] begin
-  box = Box(cart(0, 0), cart(10, 10))
-  mesh = discretize(box, MaxLengthDiscretization(T(1)))
-  @test nvertices(mesh) == 11 * 11
-  @test nelements(mesh) == 10 * 10
-  @test eltype(mesh) <: Quadrangle
-  @test nvertices.(mesh) ⊆ [4]
-
-  box = Box(latlon(0, 0), latlon(45, 45))
-  mesh = discretize(box, MaxLengthDiscretization(T(1e5)))
-  @test nvertices(mesh) == 52 * 52
-  @test nelements(mesh) == 51 * 51
-  @test eltype(mesh) <: Quadrangle
-  @test nvertices.(mesh) ⊆ [4]
-
-  seg = Segment(cart(0, 0), cart(0, 1))
-  mesh = discretize(seg, MaxLengthDiscretization(T(0.1)))
-  @test nvertices(mesh) == 11
-  @test nelements(mesh) == 10
-  @test eltype(mesh) <: Segment
-  @test nvertices.(mesh) ⊆ [2]
-
-  seg = Segment(latlon(0, 0), latlon(0, 45))
-  mesh = discretize(seg, MaxLengthDiscretization(T(1e5)))
-  @test nvertices(mesh) == 52
-  @test nelements(mesh) == 51
-  @test eltype(mesh) <: Segment
-  @test nvertices.(mesh) ⊆ [2]
-
-  rope = Rope(cart(0, 0), cart(1, 0), cart(0, 1))
-  mesh = discretize(rope, MaxLengthDiscretization(T(0.1)))
-  @test nvertices(mesh) == 27
-  @test nelements(mesh) == 25
-  @test eltype(mesh) <: Segment
-  @test nvertices.(mesh) ⊆ [2]
-
-  ring = Ring(latlon(-45, 90), latlon(45, 90), latlon(45, -90), latlon(-45, -90))
-  mesh = discretize(ring, MaxLengthDiscretization(T(1e5)))
-  @test nvertices(mesh) == 408
-  @test nelements(mesh) == 404
-  @test eltype(mesh) <: Segment
-  @test nvertices.(mesh) ⊆ [2]
-
-  tri = Triangle(cart(0, 0), cart(10, 0), cart(0, 10))
-  mesh = discretize(tri, MaxLengthDiscretization(T(3)))
-  @test nvertices(mesh) == 15
-  @test nelements(mesh) == 16
-  @test eltype(mesh) <: Triangle
-  @test nvertices.(mesh) ⊆ [3]
-
-  quad = Quadrangle(latlon(0, 0), latlon(0, 45), latlon(45, 45), latlon(45, 0))
-  mesh = discretize(quad, MaxLengthDiscretization(T(1e6)))
-  @test nvertices(mesh) == 81
-  @test nelements(mesh) == 128
-  @test eltype(mesh) <: Triangle
-  @test nvertices.(mesh) ⊆ [3]
-
-  quad1 = Quadrangle(latlon(0, 0), latlon(0, 45), latlon(45, 45), latlon(45, 0))
-  quad2 = Quadrangle(latlon(0, 0), latlon(-45, 0), latlon(-45, 45), latlon(0, 45))
-  multi = Multi([quad1, quad2])
-  mesh = discretize(multi, MaxLengthDiscretization(T(1e6)))
-  @test nvertices(mesh) == 162
-  @test nelements(mesh) == 256
-  @test eltype(mesh) <: Triangle
-  @test nvertices.(mesh) ⊆ [3]
-
-  box = Box(latlon(0, 0), latlon(45, 45))
-  tbox = TransformedGeometry(box, Proj(Mercator))
-  mesh = discretize(tbox, MaxLengthDiscretization(T(1e5)))
-  @test nvertices(mesh) == 52 * 52
-  @test nelements(mesh) == 51 * 51
-  @test eltype(mesh) <: Quadrangle
-  @test nvertices.(mesh) ⊆ [4]
-end
-
 @testitem "Discretize" setup = [Setup] begin
+  bezier = BezierCurve(cart(0, 0), cart(10, 0), cart(10, 10))
+  mesh = discretize(bezier)
+  @test topology(mesh) == GridTopology((50,), (false,))
+  @test nvertices(mesh) == 51
+  @test nelements(mesh) == 50
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  bezier = BezierCurve(latlon(0, 0), latlon(0, 10), latlon(10, 10))
+  mesh = discretize(bezier)
+  @test topology(mesh) == GridTopology((50,), (false,))
+  @test nvertices(mesh) == 51
+  @test nelements(mesh) == 50
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  bezier = BezierCurve(cart(0, 0), cart(10, 0), cart(10, 10), cart(0, 0))
+  mesh = discretize(bezier)
+  @test topology(mesh) == GridTopology((50,), (true,))
+  @test nvertices(mesh) == 50
+  @test nelements(mesh) == 50
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  bezier = BezierCurve(latlon(0, 0), latlon(0, 10), latlon(10, 10), latlon(0, 0))
+  mesh = discretize(bezier)
+  @test topology(mesh) == GridTopology((50,), (true,))
+  @test nvertices(mesh) == 50
+  @test nelements(mesh) == 50
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  curve = ParametrizedCurve(t -> Point(cos(t), sin(t), T(0.2) * t), (T(0), T(4π)))
+  mesh = discretize(curve)
+  @test topology(mesh) == GridTopology((50,), (false,))
+  @test nvertices(mesh) == 51
+  @test nelements(mesh) == 50
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  curve = ParametrizedCurve(t -> Point(cospi(2t), sinpi(2t)))
+  mesh = discretize(curve)
+  @test topology(mesh) == GridTopology((50,), (true,))
+  @test nvertices(mesh) == 50
+  @test nelements(mesh) == 50
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  box = Box(cart(0, 0), cart(10, 10))
+  mesh = discretize(box)
+  @test topology(mesh) == GridTopology((1, 1), (false, false))
+  @test nvertices(mesh) == 2 * 2
+  @test nelements(mesh) == 1 * 1
+  @test eltype(mesh) <: Quadrangle
+  @test nvertices.(mesh) ⊆ [4]
+
+  box = Box(latlon(0, 0), latlon(10, 10))
+  mesh = discretize(box)
+  @test topology(mesh) == GridTopology((4, 4), (false, false))
+  @test nvertices(mesh) == 5 * 5
+  @test nelements(mesh) == 4 * 4
+  @test eltype(mesh) <: Quadrangle
+  @test nvertices.(mesh) ⊆ [4]
+
+  box = Box(cart(0, 0, 0), cart(10, 10, 10))
+  mesh = discretize(box)
+  @test topology(mesh) == GridTopology((1, 1, 1), (false, false, false))
+  @test nvertices(mesh) == 2 * 2 * 2
+  @test nelements(mesh) == 1 * 1 * 1
+  @test eltype(mesh) <: Hexahedron
+  @test nvertices.(mesh) ⊆ [8]
+
   ball = Ball(cart(0, 0), T(1))
   mesh = discretize(ball)
   @test !(eltype(mesh) <: Triangle)
@@ -579,17 +576,148 @@ end
   @test !(eltype(mesh) <: Quadrangle)
   @test nelements(mesh) == 200
 
-  box = Box(latlon(0, 0), latlon(45, 45))
+  seg = Segment(cart(0, 0), cart(10, 10))
+  mesh = discretize(seg)
+  @test topology(mesh) == GridTopology((1,), (false,))
+  @test nvertices(mesh) == 2
+  @test nelements(mesh) == 1
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  seg = Segment(latlon(0, 0), latlon(10, 10))
+  mesh = discretize(seg)
+  @test topology(mesh) == GridTopology((4,), (false,))
+  @test nvertices(mesh) == 5
+  @test nelements(mesh) == 4
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  rope = Rope(cart(0, 0), cart(10, 0), cart(0, 10))
+  mesh = discretize(rope)
+  @test topology(mesh) == GridTopology((2,), (false,))
+  @test nvertices(mesh) == 3
+  @test nelements(mesh) == 2
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  rope = Rope(latlon(0, 0), latlon(0, 10), latlon(10, 0))
+  mesh = discretize(rope)
+  @test topology(mesh) == GridTopology((8,), (false,))
+  @test nvertices(mesh) == 9
+  @test nelements(mesh) == 8
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  ring = Ring(cart(0, 0), cart(10, 0), cart(0, 10))
+  mesh = discretize(ring)
+  @test topology(mesh) == GridTopology((3,), (true,))
+  @test nvertices(mesh) == 3
+  @test nelements(mesh) == 3
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  ring = Ring(latlon(0, 0), latlon(0, 10), latlon(10, 0))
+  mesh = discretize(ring)
+  @test topology(mesh) == GridTopology((12,), (true,))
+  @test nvertices(mesh) == 12
+  @test nelements(mesh) == 12
+  @test eltype(mesh) <: Segment
+  @test nvertices.(mesh) ⊆ [2]
+
+  tri = Triangle(cart(0, 0), cart(10, 0), cart(0, 10))
+  mesh = discretize(tri)
+  @test nvertices(mesh) == 3
+  @test nelements(mesh) == 1
+  @test eltype(mesh) <: Triangle
+  @test nvertices.(mesh) ⊆ [3]
+
+  tri = Triangle(latlon(0, 0), latlon(0, 10), latlon(10, 0))
+  mesh = discretize(tri)
+  @test nvertices(mesh) == 19
+  @test nelements(mesh) == 12
+  @test eltype(mesh) <: Quadrangle
+  @test nvertices.(mesh) ⊆ [4]
+
+  quad = Quadrangle(cart(0, 0), cart(10, 0), cart(10, 10), cart(0, 10))
+  mesh = discretize(quad)
+  @test topology(mesh) == GridTopology((1, 1), (false, false))
+  @test nvertices(mesh) == 4
+  @test nelements(mesh) == 1
+  @test eltype(mesh) <: Quadrangle
+  @test nvertices.(mesh) ⊆ [4]
+
+  quad = Quadrangle(latlon(0, 0), latlon(0, 10), latlon(10, 10), latlon(10, 0))
+  mesh = discretize(quad)
+  @test topology(mesh) == GridTopology((4, 4), (false, false))
+  @test nvertices(mesh) == 25
+  @test nelements(mesh) == 16
+  @test eltype(mesh) <: Quadrangle
+  @test nvertices.(mesh) ⊆ [4]
+
+  outer = cart.([(0, 0), (10, 0), (10, 10), (0, 10)])
+  hole1 = cart.([(2, 2), (2, 4), (4, 4), (4, 2)])
+  hole2 = cart.([(6, 2), (6, 4), (8, 4), (8, 2)])
+  poly = PolyArea([outer, hole1, hole2])
+  mesh = discretize(poly)
+  @test nvertices(mesh) == 12
+  @test nelements(mesh) == 14
+  @test eltype(mesh) <: Triangle
+  @test nvertices.(mesh) ⊆ [3]
+
+  outer = latlon.([(0, 0), (0, 10), (10, 10), (10, 0)])
+  hole1 = latlon.([(2, 2), (4, 2), (4, 4), (2, 4)])
+  hole2 = latlon.([(2, 6), (4, 6), (4, 8), (2, 8)])
+  poly = PolyArea([outer, hole1, hole2])
+  mesh = discretize(poly)
+  @test nvertices(mesh) == 191
+  @test nelements(mesh) == 168
+  @test eltype(mesh) <: Quadrangle
+  @test nvertices.(mesh) ⊆ [4]
+
+  tri = Triangle(cart(-10, 0), cart(0, 0), cart(-10, 10))
+  quad = Quadrangle(cart(0, 0), cart(10, 0), cart(10, 10), cart(0, 10))
+  multi = Multi([tri, quad])
+  mesh = discretize(multi)
+  @test nvertices(mesh) == 7
+  @test nelements(mesh) == 2
+  @test mesh[1] == tri
+  @test mesh[2] == quad
+
+  tri = Triangle(latlon(0, -10), latlon(0, 0), latlon(10, -10))
+  quad = Quadrangle(latlon(0, 0), latlon(0, 10), latlon(10, 10), latlon(10, 0))
+  multi = Multi([tri, quad])
+  mesh = discretize(multi)
+  @test nvertices(mesh) == 44
+  @test nelements(mesh) == 28
+  @test eltype(mesh) <: Quadrangle
+  @test nvertices.(mesh) ⊆ [4]
+
+  box = Box(cart(0, 0), cart(10, 10))
   tbox = TransformedGeometry(box, Proj(Mercator))
   mesh = discretize(tbox)
-  @test nvertices(mesh) == 81
-  @test nelements(mesh) == 64
+  @test topology(mesh) == GridTopology((1, 1), (false, false))
+  @test nvertices(mesh) == 4
+  @test nelements(mesh) == 1
   @test eltype(mesh) <: Quadrangle
+  @test nvertices.(mesh) ⊆ [4]
 
-  grid = CartesianGrid(10)
+  box = Box(latlon(0, 0), latlon(10, 10))
+  tbox = TransformedGeometry(box, Proj(Mercator))
+  mesh = discretize(tbox)
+  @test topology(mesh) == GridTopology((4, 4), (false, false))
+  @test nvertices(mesh) == 25
+  @test nelements(mesh) == 16
+  @test eltype(mesh) <: Quadrangle
+  @test nvertices.(mesh) ⊆ [4]
+
+  grid = cartgrid(10)
+  @test discretize(grid) == grid
+  grid = cartgrid(10, 10)
+  @test discretize(grid) == grid
+  grid = cartgrid(10, 10, 10)
   @test discretize(grid) == grid
 
-  mesh = SimpleMesh(randpoint2(3), connect.([(1, 2, 3)]))
+  mesh = SimpleMesh([cart(0, 0), cart(1, 0), cart(1, 1)], connect.([(1, 2, 3)]))
   @test discretize(mesh) == mesh
 end
 

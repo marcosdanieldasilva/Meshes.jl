@@ -37,24 +37,22 @@ Base.isapprox(b₁::Ball, b₂::Ball; atol=atol(lentype(b₁)), kwargs...) =
   isapprox(center(b₁), center(b₂); atol, kwargs...) && isapprox(radius(b₁), radius(b₂); atol, kwargs...)
 
 function (b::Ball{𝔼{2}})(ρ, φ)
-  if (ρ < 0 || ρ > 1) || (φ < 0 || φ > 1)
-    throw(DomainError((ρ, φ), "b(ρ, φ) is not defined for ρ, φ outside [0, 1]²."))
-  end
-  T = numtype(lentype(b))
+  ℒ = lentype(b)
+  T = promote_type(numtype(ℒ), typeof(ρ), typeof(φ))
+  C = basecrs(b)
   ρ′ = T(ρ) * radius(b)
   φ′ = T(φ) * 2 * T(π) * u"rad"
-  p = Point(convert(crs(b), Polar(ρ′, φ′)))
+  p = Point(convert(C, Polar(ρ′, φ′)))
   p + to(center(b))
 end
 
 function (b::Ball{𝔼{3}})(ρ, θ, φ)
-  if (ρ < 0 || ρ > 1) || (θ < 0 || θ > 1) || (φ < 0 || φ > 1)
-    throw(DomainError((ρ, θ, φ), "b(ρ, θ, φ) is not defined for ρ, θ, φ outside [0, 1]³."))
-  end
-  T = numtype(lentype(b))
+  ℒ = lentype(b)
+  T = promote_type(numtype(ℒ), typeof(ρ), typeof(θ), typeof(φ))
+  C = basecrs(b)
   ρ′ = T(ρ) * radius(b)
   θ′ = T(θ) * T(π) * u"rad"
   φ′ = T(φ) * 2 * T(π) * u"rad"
-  p = Point(convert(crs(b), Spherical(ρ′, θ′, φ′)))
+  p = Point(convert(C, Spherical(ρ′, θ′, φ′)))
   p + to(center(b))
 end

@@ -19,14 +19,6 @@ end
 # specialize constructor to avoid infinite loops
 SubDomain(d::SubDomain, inds::AbstractVector{Int}) = SubDomain(d.domain, d.inds[inds])
 
-"""
-    SubGrid{M,CRS,Dim}
-
-A subgrid of geometries in a given manifold `M` with point coordinates specified
-in a coordinate reference system `CRS`, which is embedded in `Dim` dimensions.
-"""
-const SubGrid{M<:Manifold,C<:CRS,Dim} = SubDomain{M,C,<:Grid{M,C,Dim}}
-
 # -----------------
 # DOMAIN INTERFACE
 # -----------------
@@ -35,7 +27,10 @@ element(d::SubDomain, ind::Int) = element(d.domain, d.inds[ind])
 
 nelements(d::SubDomain) = length(d.inds)
 
-# specializations
+# ----------------
+# SPECIALIZATIONS
+# ----------------
+
 Base.eltype(d::SubDomain) = eltype(d.domain)
 
 function Base.vcat(d1::SubDomain, d2::SubDomain)
@@ -71,6 +66,17 @@ Base.parent(d::SubDomain) = d.domain
 Returns the indices used to create the domain view.
 """
 Base.parentindices(d::SubDomain) = d.inds
+
+# ------------------
+# MATERIALIZE VIEWS
+# ------------------
+
+"""
+    materialize(subdomain)
+
+Return the "concrete domain" of a domain view.
+"""
+materialize(d::SubDomain) = GeometrySet(collect(d))
 
 # -----------
 # IO METHODS

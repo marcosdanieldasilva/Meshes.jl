@@ -12,6 +12,13 @@ well-defined topology `TP`.
 abstract type Mesh{M<:Manifold,C<:CRS,TP<:Topology} <: Domain{M,C} end
 
 """
+    topology(mesh)
+
+Return the topological structure of the `mesh`.
+"""
+topology(m::Mesh) = m.topology
+
+"""
     vertex(mesh, ind)
 
 Return the vertex of a `mesh` at index `ind`.
@@ -145,12 +152,12 @@ function Base.show(io::IO, ::MIME"text/plain", m::Mesh)
 end
 
 """
-    Grid{M,CRS,Dim}
+    Grid{M,CRS,N}
 
-A grid of geometries in a given manifold `M` with points coordinates specified
-in a coordinate reference system `CRS`, which is embedded in `Dim` dimensions.
+A `N`-dimensional grid of geometries in a given manifold `M` with
+point coordinates specified in a coordinate reference system `CRS`.
 """
-const Grid{M<:Manifold,C<:CRS,Dim} = Mesh{M,C,GridTopology{Dim}}
+const Grid{M<:Manifold,C<:CRS,N} = Mesh{M,C,GridTopology{N}}
 
 """
     vertex(grid, ijk)
@@ -180,7 +187,81 @@ function xyz end
 Returns the coordinate arrays of each dimension of the `grid`, e.g `(X, Y, Z, ...)`.
 The vertex `i,j,k,...` is constructed with `Point(X[i,j,k,...], Y[i,j,k,...], Z[i,j,k,...], ...)`.
 """
-function XYZ end
+XYZ(grid::Grid) = XYZ(grid, ntuple(i -> 1, paramdim(grid)))
+
+XYZ(grid::Grid, factors::Dims) = XYZ(grid, Val(paramdim(grid)), factors)
+
+function XYZ(grid::Grid, ::Val{1}, factors::Dims{1})
+  T = numtype(lentype(grid))
+  fᵢ = only(factors)
+  sᵢ = only(size(grid))
+  us = 0:T(1 / fᵢ):1
+  catᵢ(A...) = cat(A..., dims=Val(1))
+
+  xyz(p) = CoordRefSystems.values(coords(p))
+  mat(seg) = [xyz(seg(u)) for u in us]
+  M = [mat(grid[i]) for i in 1:sᵢ]
+
+  C = mapreduce(catᵢ, 1:sᵢ) do i
+    Mᵢ = M[i]
+    i == sᵢ ? Mᵢ : Mᵢ[begin:(end - 1)]
+  end
+
+  ntuple(i -> getindex.(C, i), CoordRefSystems.ncoords(crs(grid)))
+end
+
+function XYZ(grid::Grid, ::Val{2}, factors::Dims{2})
+  T = numtype(lentype(grid))
+  fᵢ, fⱼ = factors
+  sᵢ, sⱼ = size(grid)
+  us = 0:T(1 / fᵢ):1
+  vs = 0:T(1 / fⱼ):1
+  catᵢ(A...) = cat(A..., dims=Val(1))
+  catⱼ(A...) = cat(A..., dims=Val(2))
+
+  xyz(p) = CoordRefSystems.values(coords(p))
+  mat(quad) = [xyz(quad(u, v)) for u in us, v in vs]
+  M = [mat(grid[i, j]) for i in 1:sᵢ, j in 1:sⱼ]
+
+  C = mapreduce(catⱼ, 1:sⱼ) do j
+    Mⱼ = mapreduce(catᵢ, 1:sᵢ) do i
+      Mᵢⱼ = M[i, j]
+      i == sᵢ ? Mᵢⱼ : Mᵢⱼ[begin:(end - 1), :]
+    end
+    j == sⱼ ? Mⱼ : Mⱼ[:, begin:(end - 1)]
+  end
+
+  ntuple(i -> getindex.(C, i), CoordRefSystems.ncoords(crs(grid)))
+end
+
+function XYZ(grid::Grid, ::Val{3}, factors::Dims{3})
+  T = numtype(lentype(grid))
+  fᵢ, fⱼ, fₖ = factors
+  sᵢ, sⱼ, sₖ = size(grid)
+  us = 0:T(1 / fᵢ):1
+  vs = 0:T(1 / fⱼ):1
+  ws = 0:T(1 / fₖ):1
+  catᵢ(A...) = cat(A..., dims=Val(1))
+  catⱼ(A...) = cat(A..., dims=Val(2))
+  catₖ(A...) = cat(A..., dims=Val(3))
+
+  xyz(p) = CoordRefSystems.values(coords(p))
+  mat(hex) = [xyz(hex(u, v, w)) for u in us, v in vs, w in ws]
+  M = [mat(grid[i, j, k]) for i in 1:sᵢ, j in 1:sⱼ, k in 1:sₖ]
+
+  C = mapreduce(catₖ, 1:sₖ) do k
+    Mₖ = mapreduce(catⱼ, 1:sⱼ) do j
+      Mⱼₖ = mapreduce(catᵢ, 1:sᵢ) do i
+        Mᵢⱼₖ = M[i, j, k]
+        i == sᵢ ? Mᵢⱼₖ : Mᵢⱼₖ[begin:(end - 1), :, :]
+      end
+      j == sⱼ ? Mⱼₖ : Mⱼₖ[:, begin:(end - 1), :]
+    end
+    k == sₖ ? Mₖ : Mₖ[:, :, begin:(end - 1)]
+  end
+
+  ntuple(i -> getindex.(C, i), CoordRefSystems.ncoords(crs(grid)))
+end
 
 # ----------
 # FALLBACKS
@@ -248,12 +329,13 @@ end
 # IMPLEMENTATIONS
 # ----------------
 
+include("meshes/submeshes.jl")
 include("meshes/regulargrid.jl")
 include("meshes/cartesiangrid.jl")
 include("meshes/rectilineargrid.jl")
 include("meshes/structuredgrid.jl")
 include("meshes/simplemesh.jl")
-include("meshes/transformedmesh.jl")
+include("meshes/transfmeshes.jl")
 
 # aliases for dispatch purposes
 const OrthoRegularGrid{M<:𝔼,C<:Union{Cartesian,Projected}} = RegularGrid{M,C}

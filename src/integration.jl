@@ -1,0 +1,162 @@
+# ------------------------------------------------------------------
+# Licensed under the MIT License. See LICENSE in the project root.
+# ------------------------------------------------------------------
+
+# default integration backend
+function hadaptive(geom)
+  T = numtype(lentype(geom))
+  II.Backend.HAdaptiveIntegration(rtol=rtol(T), atol=atol(T))
+end
+
+"""
+    integral(fun, geom; ibackend, dbackend)
+
+Calculate the integral over the `geom`etry of the `fun`ction that maps
+[`Point`](@ref)s to values in a linear space using an integration `ibackend`
+from IntegrationInterface.jl and a differentiation `dbackend` from
+DifferentiationInterface.jl.
+
+    integral(fun, dom; ibackend, dbackend)
+
+Alternatively, calculate the integral over the `dom`ain (e.g., mesh) by
+summing the integrals for each constituent geometry.
+
+By default, performs automatic differentation with ForwardDiff.jl and
+h-adaptive integration with HAdaptiveIntegration.jl for good accuracy
+across a wide range of geometries.
+
+See also [`localintegral`](@ref).
+"""
+integral(fun, geom::Geometry; ibackend=hadaptive(geom), dbackend=FORWARDDIFF) = _integral(fun, geom, ibackend, dbackend)
+
+# cylinder surface is the union of the curved surface and the top and bottom disks
+integral(fun, cylsurf::CylinderSurface; ibackend=hadaptive(cylsurf), dbackend=FORWARDDIFF) =
+  localintegral(fun ∘ cylsurf, cylsurf; ibackend, dbackend) +
+  integral(fun, top(cylsurf); ibackend, dbackend) +
+  integral(fun, bottom(cylsurf); ibackend, dbackend)
+
+# cone surface is the union of the curved surface and the base disk
+integral(fun, conesurf::ConeSurface; ibackend=hadaptive(conesurf), dbackend=FORWARDDIFF) =
+  localintegral(fun ∘ conesurf, conesurf; ibackend, dbackend) + integral(fun, base(conesurf); ibackend, dbackend)
+
+# frustum surface is the union of the curved surface and the top and bottom disks
+integral(fun, frustumsurf::FrustumSurface; ibackend=hadaptive(frustumsurf), dbackend=FORWARDDIFF) =
+  localintegral(fun ∘ frustumsurf, frustumsurf; ibackend, dbackend) +
+  integral(fun, top(frustumsurf); ibackend, dbackend) +
+  integral(fun, bottom(frustumsurf); ibackend, dbackend)
+
+# rope is the union of its constituent segments
+# note: extra allocation with sum([...]) is intentional to workaround a Julia bug
+integral(fun, rope::Rope; ibackend=hadaptive(rope), dbackend=FORWARDDIFF) =
+  sum([integral(fun, seg; ibackend, dbackend) for seg in segments(rope)])
+
+# ring is the union of its constituent segments
+# note: extra allocation with sum([...]) is intentional to workaround a Julia bug
+integral(fun, ring::Ring; ibackend=hadaptive(ring), dbackend=FORWARDDIFF) =
+  sum([integral(fun, seg; ibackend, dbackend) for seg in segments(ring)])
+
+# polygon is the union of its constituent ngons
+# note: extra allocation with sum([...]) is intentional to workaround a Julia bug
+integral(fun, poly::Polygon; ibackend=hadaptive(poly), dbackend=FORWARDDIFF) =
+  sum([integral(fun, ngon; ibackend, dbackend) for ngon in simplexify(poly)])
+
+# integrate triangles with local integration
+integral(fun, tri::Triangle; ibackend=hadaptive(tri), dbackend=FORWARDDIFF) = _integral(fun, tri, ibackend, dbackend)
+
+# integrate quadrangle with local integration
+integral(fun, quad::Quadrangle; ibackend=hadaptive(quad), dbackend=FORWARDDIFF) =
+  _integral(fun, quad, ibackend, dbackend)
+
+# multi-geometry is the union of its constituent geometries
+# note: extra allocation with sum([...]) is intentional to workaround a Julia bug
+integral(fun, multi::Multi; ibackend=hadaptive(multi), dbackend=FORWARDDIFF) =
+  sum([integral(fun, geom; ibackend, dbackend) for geom in parent(multi)])
+
+# domain is the union of its constituent geometries
+# note: extra allocation with sum([...]) is intentional to workaround a Julia bug
+integral(fun, dom::Domain; ibackend=hadaptive(dom), dbackend=FORWARDDIFF) =
+  sum([integral(fun, geom; ibackend, dbackend) for geom in dom])
+
+# fallback to local integration of fun ∘ geom
+_integral(fun, geom, ibackend, dbackend) = localintegral(fun ∘ geom, geom; ibackend, dbackend)
+
+"""
+    localintegral(fun, geom; ibackend, dbackend)
+
+Calculate the integral over the `geom`etry of the `fun`ction that maps
+parametric coordinates `uvw` to values in a linear space using an integration
+`ibackend` from IntegrationInterface.jl and a differentiation `dbackend`
+from DifferentiationInterface.jl.
+
+By default, performs automatic differentation with ForwardDiff.jl and
+h-adaptive integration with HAdaptiveIntegration.jl for good accuracy
+across a wide range of geometries.
+
+See also [`integral`](@ref).
+"""
+function localintegral(fun, geom::Geometry; ibackend=hadaptive(geom), dbackend=FORWARDDIFF)
+  # integrand is equal to function times differential element
+  integrand(uvw...) = fun(uvw...) * differential(geom, uvw; dbackend)
+
+  # domain of integration for the given geometry
+  domain = ∫domain(geom)
+
+  # extract units of integral by assuming
+  # integrand can be evaluated at zeros
+  N = paramdim(geom)
+  T = numtype(lentype(geom))
+  o = ntuple(_ -> zero(T), N)
+  u = unit.(integrand(o...))
+
+  # strip units to help integration backends
+  f(uvw...) = ustrip.(integrand(uvw...))
+
+  # perform numerical integration
+  II.integral(f, domain; backend=ibackend) .* u
+end
+
+function ∫domain(geom::Geometry)
+  N = paramdim(geom)
+  T = numtype(lentype(geom))
+  a = ntuple(_ -> zero(T), N)
+  b = ntuple(_ -> one(T), N)
+  II.Domain.Box(a, b)
+end
+
+function ∫domain(ray::Ray)
+  T = numtype(lentype(ray))
+  a = (zero(T),)
+  b = (II.Infinity(one(T)),)
+  II.Domain.Box(a, b)
+end
+
+function ∫domain(line::Line)
+  T = numtype(lentype(line))
+  a = (-II.Infinity(one(T)),)
+  b = (II.Infinity(one(T)),)
+  II.Domain.Box(a, b)
+end
+
+function ∫domain(plane::Plane)
+  T = numtype(lentype(plane))
+  a = (-II.Infinity(one(T)), -II.Infinity(one(T)))
+  b = (II.Infinity(one(T)), II.Infinity(one(T)))
+  II.Domain.Box(a, b)
+end
+
+function ∫domain(tri::Triangle)
+  T = numtype(lentype(tri))
+  a = (zero(T), zero(T))
+  b = (one(T), zero(T))
+  c = (zero(T), one(T))
+  II.Domain.Simplex(a, b, c)
+end
+
+function ∫domain(tetra::Tetrahedron)
+  T = numtype(lentype(tetra))
+  a = (zero(T), zero(T), zero(T))
+  b = (one(T), zero(T), zero(T))
+  c = (zero(T), one(T), zero(T))
+  d = (zero(T), zero(T), one(T))
+  II.Domain.Simplex(a, b, c, d)
+end

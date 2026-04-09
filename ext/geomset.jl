@@ -47,33 +47,47 @@ end
 # IMPLEMENTATION
 # ---------------
 
-function vizgset!(plot, ::Type{<:🌐}, pdim::Val, edim::Val, geoms::ObservableVector{<:Geometry}, colors)
-  vizgset!(plot, 𝔼, pdim, edim, geoms, colors)
-end
-
-function vizgset!(plot, ::Type{<:𝔼}, pdim::Val, edim::Val, geoms::ObservableVector{<:Geometry}, colors)
+# fallback to visualization of discretized geometries
+function vizgset!(plot, ::Type, pdim::Val, ::Val, geoms::ObservableVector{<:Geometry}, colors)
   showsegments = plot[:showsegments]
   showpoints = plot[:showpoints]
 
+  # make sure the geometries are discretized
+  # with efficient "grid-like" methods before
+  # turning the quadrangles into triangles
+  triangulate = simplexify ∘ discretize
+
   if pdim === Val(1)
-    meshes = Makie.@lift simplexify.($geoms)
+    meshes = Makie.@lift triangulate.($geoms)
     vizmany!(plot, meshes, colors)
     if showpoints[]
       vizfacets!(plot, geoms)
     end
   elseif pdim === Val(2)
-    meshes = Makie.@lift simplexify.($geoms)
+    meshes = Makie.@lift triangulate.($geoms)
     vizmany!(plot, meshes, colors)
     if showsegments[]
       vizfacets!(plot, geoms)
     end
   elseif pdim == Val(3)
-    meshes = Makie.@lift simplexify.(boundary.($geoms))
+    meshes = Makie.@lift triangulate.(boundary.($geoms))
     vizmany!(plot, meshes, colors)
   end
 end
 
-function vizgset!(plot, ::Type{<:𝔼}, ::Val{0}, ::Val, geoms::ObservableVector{<:Point}, colors)
+# collect and visualize parents of multi-geometries
+function vizgset!(plot, M::Type, pdim::Val, edim::Val, geoms::ObservableVector{<:Multi}, colors)
+  # retrieve parent geometries
+  parents = Makie.@lift mapreduce(parent, vcat, $geoms)
+
+  # repeat colors for parents
+  pcolors = Makie.@lift [$colors[i] for (i, g) in enumerate($geoms) for _ in 1:length(parent(g))]
+
+  # call recipe for parents
+  vizgset!(plot, M, pdim, edim, parents, pcolors)
+end
+
+function vizgset!(plot, ::Type, ::Val, ::Val, geoms::ObservableVector{<:Point}, colors)
   pointmarker = plot[:pointmarker]
   pointsize = plot[:pointsize]
 
@@ -84,20 +98,18 @@ function vizgset!(plot, ::Type{<:𝔼}, ::Val{0}, ::Val, geoms::ObservableVector
   Makie.scatter!(plot, coords, color=colors, marker=pointmarker, markersize=pointsize, overdraw=true)
 end
 
-function vizgset!(plot, ::Type{<:𝔼}, ::Val{1}, ::Val, geoms::ObservableVector{<:Ray}, colors)
+function vizgset!(plot, ::Type, ::Val, edim::Val, geoms::ObservableVector{<:Ray}, colors)
   segmentsize = plot[:segmentsize]
   showpoints = plot[:showpoints]
-
-  edim = embeddim(first(geoms[]))
 
   # visualize as built-in arrows
   orig = Makie.@lift [asmakie(ray(0)) for ray in $geoms]
   dirs = Makie.@lift [asmakie(ray(1) - ray(0)) for ray in $geoms]
-  if edim == 2
+  if edim === Val(2)
     tipwidth = Makie.@lift 5 * $segmentsize
     shaftwidth = Makie.@lift 0.2 * $tipwidth
     Makie.arrows2d!(plot, orig, dirs, color=colors, tipwidth=tipwidth, shaftwidth=shaftwidth)
-  elseif edim == 3
+  elseif edim === Val(3)
     tipradius = Makie.@lift 0.05 * $segmentsize
     shaftradius = Makie.@lift 0.5 * $tipradius
     Makie.arrows3d!(plot, orig, dirs, color=colors, tipradius=tipradius, shaftradius=shaftradius)
@@ -110,12 +122,12 @@ function vizgset!(plot, ::Type{<:𝔼}, ::Val{1}, ::Val, geoms::ObservableVector
   end
 end
 
-function vizgset!(plot, ::Type{<:𝔼}, ::Val{1}, ::Val{2}, geoms::ObservableVector{<:Line}, colors)
+function vizgset!(plot, ::Type{<:𝔼}, ::Val, ::Val{2}, geoms::ObservableVector{<:Line}, colors)
   segmentsize = plot[:segmentsize]
 
   # split vertical and non-vertical lines
   inter = Makie.@lift [line ∩ Line((0, 0), (0, 1)) for line in $geoms]
-  vinds = Makie.@lift findall(isnothing, $inter)
+  vinds = Makie.@lift findall(g -> isnothing(g) || g isa Line, $inter)
   dinds = Makie.@lift setdiff(1:length($geoms), $vinds)
 
   # split colors accordingly
@@ -137,9 +149,12 @@ function vizgset!(plot, ::Type{<:𝔼}, ::Val{1}, ::Val{2}, geoms::ObservableVec
   if !isempty(dinds[])
     dlines = Makie.@lift $geoms[$dinds]
     dinter = Makie.@lift $inter[$dinds]
-    ycoord = Makie.@lift map($dinter) do point
-      c = coords(point)
-      y = convert(Cartesian, c).y
+    ycoord = Makie.@lift map($dinter) do I
+      y = if I isa Line # horizontal line through origin
+        zero(Meshes.lentype(I))
+      else # intersection point with vertical axis
+        convert(Cartesian, coords(I)).y
+      end
       ustrip(y)
     end
     slopes = Makie.@lift map($dlines) do dline
@@ -163,23 +178,6 @@ function vizgset!(plot, ::Type{<:𝔼}, ::Val{2}, ::Val{2}, geoms::ObservableVec
   else
     Makie.poly!(plot, polys, color=colors)
   end
-end
-
-vizgset!(plot, M::Type{<:🌐}, pdim::Val, edim::Val, geoms::ObservableVector{<:Multi}, colors) =
-  vizgsetmulti!(plot, M, pdim, edim, geoms, colors)
-
-vizgset!(plot, M::Type{<:𝔼}, pdim::Val, edim::Val, geoms::ObservableVector{<:Multi}, colors) =
-  vizgsetmulti!(plot, M, pdim, edim, geoms, colors)
-
-function vizgsetmulti!(plot, M, pdim, edim, geoms, colors)
-  # retrieve parent geometries
-  parents = Makie.@lift mapreduce(parent, vcat, $geoms)
-
-  # repeat colors for parents
-  pcolors = Makie.@lift [$colors[i] for (i, g) in enumerate($geoms) for _ in 1:length(parent(g))]
-
-  # call recipe for parents
-  vizgset!(plot, M, pdim, edim, parents, pcolors)
 end
 
 # -------

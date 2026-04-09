@@ -85,12 +85,7 @@ end
 function boundary(b::Box{🌐})
   A = convert(LatLon, coords(minimum(b)))
   B = convert(LatLon, coords(maximum(b)))
-  v = [
-    withcrs(b, (A.lat, A.lon), LatLon),
-    withcrs(b, (A.lat, B.lon), LatLon),
-    withcrs(b, (B.lat, B.lon), LatLon),
-    withcrs(b, (B.lat, A.lon), LatLon)
-  ]
+  v = [withcrs(b, (A.lat, A.lon)), withcrs(b, (A.lat, B.lon)), withcrs(b, (B.lat, B.lon)), withcrs(b, (B.lat, A.lon))]
   Ring(v)
 end
 
@@ -122,7 +117,7 @@ boundary(::Circle) = nothing
 
 embedboundary(c::Circle) = c
 
-boundary(c::Cylinder) = CylinderSurface(bottom(c), top(c), radius(c))
+boundary(c::Cylinder) = CylinderSurface(plane(bottom(c)), plane(top(c)), radius(c))
 
 embedboundary(c::Cylinder) = boundary(c)
 
@@ -224,6 +219,7 @@ function boundary(g::TransformedGeometry)
 end
 
 function embedboundary(g::TransformedGeometry)
+  paramdim(g) < embeddim(g) && return g
   b = embedboundary(parent(g))
   t = transform(g)
   if b isa Geometry
@@ -239,23 +235,12 @@ end
 Return vector of [`Point`](@ref)s that approximate
 the [`embedboundary`](@ref) of the `geometry`.
 """
-boundarypoints(g::Geometry) = _boundarypoints(embedboundary(g))
+boundarypoints(g::Geometry) = _boundarypoints(g)
 
-# discretize boundary and extract vertices
-_boundarypoints(g::Geometry) = vertices(discretize(g))
+boundarypoints(p::Point) = [p]
 
-# --------------
-# OPTIMIZATIONS
-# --------------
+boundarypoints(m::MultiPoint) = parent(m)
 
-_boundarypoints(p::Point) = [p]
+boundarypoints(p::Polytope) = manifold(p) === 🌐 ? _boundarypoints(p) : vertices(p)
 
-_boundarypoints(m::MultiPoint) = parent(m)
-
-_boundarypoints(p::Polytope) = _boundarypoints(manifold(p), p)
-
-_boundarypoints(::Type{<:𝔼}, p::Polytope) = vertices(p)
-
-_boundarypoints(::Type{<:🌐}, p::Polytope) = vertices(discretize(p))
-
-_boundarypoints(m::Mesh) = vertices(m)
+_boundarypoints(g::Geometry) = vertices(discretize(embedboundary(g)))
